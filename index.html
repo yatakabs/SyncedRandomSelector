@@ -108,8 +108,6 @@
 
             playersContainer.innerHTML = "";
 
-            console.info(parameters);
-
             parameters
                 .players
                 .forEach((name, i) => {
@@ -133,9 +131,7 @@
                     nameInput.value = name;
 
                     nameInput.onchange = () => {
-                        console.info(nameInput.value);
                         parameters.players[i] = nameInput.value.trim();
-                        console.info(parameters.players);
                     };
 
                     div.appendChild(label);
@@ -148,10 +144,7 @@
                         personParams.myIndex = i;
                         personParams.myName = name;
 
-                        console.info("personParams", personParams);
-
                         const paramsJson = JSON.stringify(personParams);
-                        console.info(paramsJson);
                         const sp = new URLSearchParams({
                             i: encodeText(paramsJson),
                             mode: "run"
@@ -167,7 +160,6 @@
                             + "?"
                             + sp.toString();
 
-                        console.info(personalLink);
 
                         const link = document.createElement("a");
                         link.href = personalLink;
@@ -197,7 +189,6 @@
         buttonNext.onclick = () => {
             currentTurn++;
             currentRand = Math.abs(random.next()) % parameters.players.length;
-            console.info(currentTurn, currentRand);
             update();
         }
 
@@ -223,8 +214,6 @@
                 parameters = JSON.parse(json);
                 currentTurn = parameters.turn;
                 random = new Random(parameters.seed);
-
-                console.info(parameters);
 
                 update();
             }
