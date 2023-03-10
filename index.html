@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>えらぶやつ</title>
+</head>
+
+<body>
+    <div id="numebr_container" class="parameter">
+        <label for="number">人数</label>
+        <input id="number" type="number" value="5" />
+    </div>
+
+    <div id="seed_container" class="parameter">
+        <label for="seed">Seed</label>
+        <input id="seed" type="number" value="" />
+        <button id="rotate_seed">Random</button>
+    </div>
+
+    <div id="players">
+    </div>
+
+    <button id="generate_link">リンク生成</button>
+
+    <div id="runtime_container">
+        <h1>あなたは <span id="my_name"></span></h1>
+        <h2 id="turn"></h2>
+        <div id="result"></div>
+
+        <button id="next">抽選</button>
+    </div>
+
+    <script type="text/javascript">
+        const encodeText = plainText => btoa(plainText);
+        const decodeText = encodedText => atob(encodedText);
+
+        // https://sbfl.net/blog/2017/06/01/javascript-reproducible-random/
+        class Random {
+            constructor(seed = 88675123) {
+                this.x = 123456789;
+                this.y = 362436069;
+                this.z = 521288629;
+                this.w = seed;
+            }
+
+            // XorShift
+            next() {
+                let t;
+
+                t = this.x ^ (this.x << 11);
+                this.x = this.y; this.y = this.z; this.z = this.w;
+                return this.w = (this.w ^ (this.w >>> 19)) ^ (t ^ (t >>> 8));
+            }
+        }
+
+
+
+        const runtimeContainer = document.getElementById("runtime_container");
+        const seedInput = document.getElementById("seed");
+        const numberInput = document.getElementById("number");
+        const playersContainer = document.getElementById("players");
+        const buttonNext = document.getElementById("next");
+        const buttonRotateSeed = document.getElementById("rotate_seed");
+        const resultText = document.getElementById("result");
+        const turnText = document.getElementById("turn");
+        const buttonGenerateLink = document.getElementById("generate_link");
+        const myNameText = document.getElementById("my_name");
+
+
+        const searchParams = new URLSearchParams(window.location.search);
+        const isRunMode = searchParams.get("mode") == "run";
+
+        let parameters = {
+            myIndex: 0,
+            myName: "",
+            players: [],
+            seed: 0,
+            turn: 0,
+        };
+
+        let currentTurn = 0;
+        let currentRand = -1
+        let random = new Random();
+        let shouldGenrateLink = false;
+
+        const rotateSeed = () => {
+            parameters.seed = Math.floor(Math.random() * Number.MAX_SAFE_INTEGER);
+            update();
+        }
+
+        const update = () => {
+            const count = numberInput.value;
+            seedInput.value = parameters.seed;
+            myNameText.innerText = parameters.myName;
+
+            if (isRunMode) {
+                turnText.innerText = `ターン： ${currentTurn}`;
+                resultText.innerText = currentRand == parameters.myIndex ? "あたり" : "はずれ";
+            }
+
+            while (parameters.players.length > count) {
+                parameters.players.pop();
+            }
+
+            while (parameters.players.length < count) {
+                parameters.players.push("");
+            }
+
+            playersContainer.innerHTML = "";
+
+            console.info(parameters);
+
+            parameters
+                .players
+                .forEach((name, i) => {
+                    const id = `name-${i + 1}`;
+
+                    const div = document.createElement("div", {
+                        id: `${id}-container`,
+                    });
+
+                    const label = document.createElement("label", {
+                        for: id,
+                    });
+
+                    label.innerText = `Player-${i + 1}`;
+
+                    const nameInput = document.createElement("input", {
+                        id: id,
+                        type: "text",
+                    });
+
+                    nameInput.value = name;
+
+                    nameInput.onchange = () => {
+                        console.info(nameInput.value);
+                        parameters.players[i] = nameInput.value.trim();
+                        console.info(parameters.players);
+                    };
+
+                    div.appendChild(label);
+                    div.appendChild(nameInput);
+
+                    if (!isRunMode && shouldGenrateLink) {
+
+                        let myName = { ...parameters };
+                        let personParams = { ...parameters }
+                        personParams.myIndex = i;
+                        personParams.myName = name;
+
+                        console.info("personParams", personParams);
+
+                        const paramsJson = JSON.stringify(personParams);
+                        console.info(paramsJson);
+                        const sp = new URLSearchParams({
+                            i: encodeText(paramsJson),
+                            mode: "run"
+                        });
+
+
+                        const personalLink =
+                            [
+                                location.origin,
+                                location.pathname,
+                            ]
+                                .join("")
+                            + "?"
+                            + sp.toString();
+
+                        console.info(personalLink);
+
+                        const link = document.createElement("a");
+                        link.href = personalLink;
+                        link.innerText = personalLink;
+
+                        div.appendChild(link);
+                    }
+
+                    playersContainer.appendChild(div);
+
+                    if (isRunMode) {
+                        nameInput.disabled = true;
+                    }
+                });
+        };
+
+
+        numberInput.onchange = () => {
+            update();
+        };
+
+        seedInput.onchange = () => {
+            parameters.seed = seedInput.value;
+            update();
+        }
+
+        buttonNext.onclick = () => {
+            currentTurn++;
+            currentRand = Math.abs(random.next()) % parameters.players.length;
+            console.info(currentTurn, currentRand);
+            update();
+        }
+
+        buttonRotateSeed.onclick = () => {
+            rotateSeed();
+        }
+
+        buttonGenerateLink.onclick = () => {
+            shouldGenrateLink = true;
+            update();
+        }
+
+        window.onload = () => {
+            if (isRunMode) {
+                buttonRotateSeed.remove();
+                buttonGenerateLink.remove();
+
+                seedInput.disabled = true;
+                numberInput.disabled = true;
+
+                const base64 = searchParams.get("i");
+                const json = decodeText(base64);
+                parameters = JSON.parse(json);
+                currentTurn = parameters.turn;
+                random = new Random(parameters.seed);
+
+                console.info(parameters);
+
+                update();
+            }
+            else {
+                runtimeContainer.remove();
+                rotateSeed();
+            }
+        };
+    </script>
+</body>
+
+</html>
